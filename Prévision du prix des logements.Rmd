@@ -1,0 +1,543 @@
+---
+title: "Prévision du prix des logements"
+Authors: "BACHER Quentin -	BAHAKOULA Fanelvie - MZIU Erleta -	PIERRON Marie"
+output: html_document
+date: "2024-12-12"
+---
+
+```{r setup1, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+  if (!require(wooldridge)) {
+    install.packages("wooldridge")  
+    library(wooldridge)  
+} else {
+    library(wooldridge)  
+}
+```
+
+
+```{r setup, include=FALSE}
+install.packages("wooldridge")
+install.packages("psych")
+install.packages("readxl")
+install.packages("lmtest")
+install.packages("dplyr")
+install.packages("car")
+install.packages("AER")
+install.packages("sandwich")
+install.packages("ggplot2")
+install.packages("corrplot")
+install.packages("whitestrap")
+install.packages("pscl")
+library(whitestrap)
+library(wooldridge)
+library(psych)
+library(wooldridge)
+library(lmtest)
+library(readxl)
+library(dplyr)
+library(sandwich)
+library(AER)
+library(car)
+library(ggplot2)
+library(corrplot)
+library(pscl)
+```
+
+# Objectif du modele
+
+L'objectif est de construire un modèle de régression qui peut prédire le prix d'une propriété en fonction des caractéristiques fournies.
+
+
+## Description de la tâche
+
+Cette tâche consiste à prédire le prix des propriétés immobilières en fonction de diverses caractéristiques qui influencent la valeur d'une propriété. L'ensemble de données contient plusieurs attributs des propriétés immobilières tels que la superficie, le nombre de chambres, de salles de bains, d'étages, l'année de construction de la propriété, si la propriété dispose d'un jardin ou d'une piscine, la taille du garage, le score d'emplacement et la distance du centre-ville.
+
+
+## L'ensemble de données
+
+### lien vers la Base de données
+
+[Cliquez ici: Prévision du prix des logements](https://www.kaggle.com/datasets/denkuznetz/housing-prices-regression)
+
+
+### Variable dependante
+
+Prix: La variable cible qui représente le prix de la propriété. C'est la valeur que nous visons à prédire.
+
+### variables explivatives 
+
+ID:identifiant unique pour chaque propriété.      
+Superficie_propriété: La superficie de la propriété en mètres carrés.           
+Nombre_Chambres: Le nombre de chambres dans la propriété.       
+Nombre_Salles_bain: Le nombre de salles de bains dans la propriété.           
+Nombre_Étages: Le nombre d'étages dans la propriété.                  
+Possede_Jardin : Indique si la propriété a un jardin (1 pour oui, 0 pour non).          
+Possede_Piscine: Indique si la propriété a un pool (1 pour oui, 0 pour non).            
+Garage_Taille: La taille du garage en mètres carrés. 
+Score_Qualité_quartier: Un score de 0 à 10 indiquant la qualité du quartier (des scores plus élevés indiquent de meilleurs quartiers).  
+Distance_Centre_ville: La distance entre la propriété et le centre-ville en kilomètres.
+
+
+
+
+```{r}
+setwd("/Users/fanelviebahakoula")
+prix<-read_excel("Downloads/Projet Econométrie ETIC/bd prix de logements.xlsx")
+View(prix)
+
+```
+
+
+___
+
+
+
+## Afficher les doublons et les valeurs manquantes
+
+
+
+```{r}
+prix<-prix%>% filter(!if_any(everything(), is.na))
+doublons_prix<-prix[duplicated(prix), ]
+print(doublons_prix) 
+```
+
+Interpretation : pas de doublons dans la base de donnée
+Comme nous n'avons pas de valeurs manquantes et que les variables catégoriques (présence de jardin et de piscine) sont déjà codées en binaire, les données sont prêtes pour la modélisation.
+
+
+
+# Avoir une vue d'ensemble de la base de donnée
+
+
+
+
+```{r psych}
+describe(prix)
+```
+
+
+## Distribution des observations et repérages des points aberrants : Boites à moustaches
+
+
+
+
+```{r}
+prix$Superficie_propriété<-as.numeric(prix$Superficie_propriété)
+prix$Nombre_Chambres<-as.numeric(prix$Nombre_Chambres)
+prix$Nombre_Salles_bain<-as.numeric(prix$Nombre_Salles_bain)
+prix$Nombre_Étages<-as.numeric(prix$Nombre_Étages)
+prix$Possede_Jardin<-as.numeric(prix$Possede_Jardin)
+prix$Possede_Piscine<-as.numeric(prix$Possede_Piscine)
+prix$Garage_Taille<-as.numeric(prix$`Garage_Taille  m`)
+prix$Score_Qualité_quartier<-as.numeric(prix$Score_Qualité_quartier)
+prix$Distance_Centre_ville<-as.numeric(prix$Distance_Centre_ville)
+prix$Prix<-as.numeric(prix$Prix)
+```
+
+
+
+
+```{r pressure, echo=FALSE}
+par(mfrow=c(4,3),cex=0.1)
+
+{
+boxplot(prix$Superficie_propriété,main="Superficie de la propriété en mètres carrés",col="blue" )
+boxplot(prix$Nombre_Chambres,main="Nombre de chambres dans la propriété",col="blue")
+boxplot(prix$Nombre_Salles_bain,main="Nombre de salles de bains dans la propriété",col="blue")
+boxplot(prix$Nombre_Étages,main="Nombre d'étages dans la propriété",col="blue")
+boxplot(prix$Possede_Jardin,main="Indique si la propriété a un jardin",col="blue")
+boxplot(prix$Possede_Piscine,main="Indique si la propriété a un pool",col="blue")
+boxplot(prix$Garage_Taille,main=" Taille du garage en mètres carrés",col="blue")
+boxplot(prix$Score_Qualité_quartier,main="Score de la qualité du quartier ",col="blue")
+boxplot(prix$Distance_Centre_ville,main="Distance entre la propriété et le centre-ville en kilomètres",col="blue")
+}
+```
+
+
+
+
+___
+
+
+
+# Estimation du modele par la methode des moindres carrées ordinnaires multiple (MCO) 
+
+
+
+```{r}
+prix_reg<-lm(Prix~Superficie_propriété+Nombre_Chambres+Nombre_Salles_bain+Nombre_Étages+Possede_Jardin+Possede_Piscine+Garage_Taille+Score_Qualité_quartier+Distance_Centre_ville, data=prix)
+summary(prix_reg)
+```
+
+
+## Interprétation des résultats :
+
+Intercepter (constante) : L'intercept est de 79 650,92, ce qui signifie que si toutes les caracteristiques des logements étaient égales à zéro, le prix de la propriété serait estimé à 79 650,92. 
+
+Signification des variables : Dans notre modèle, toutes les variables ont des p-values inférieures à 0,05 (elles sont toutes significatives à un niveau de 1 %), ce qui indique que chaque variable incluse dans notre modele a un effet statistiquement significatif sur le prix de la propriété.
+
+Statistiques globales du modèle 
+
+Erreur standard résiduelle : 57 370, Cela donne une mesure de la dispersion des erreurs résiduelles autour de la droite de régression. Plus l'erreur est petite, plus les prédictions du prix de logements sont précises.
+
+R-carré multiple (R² = 0,7838) : Cela indique que 78,38 % de la variation du prix des propriétés est expliquée par les variables explicatives dans notre modèle. Le R² de 0.7838 est relativement élevé, ce qui suggère que le modèle explique une grande partie de la variation du prix des propriétés.
+
+R-carré ajusté (R² ajusté = 0,7798) :
+Cette mesure est utilisée pour ajuster le R² en fonction du nombre de variables dans le modèle. L'ajustement est important pour éviter la surévaluation de la qualité du modèle lorsque trop de variables sont utilisées. Dans notre cas, l'ajustement est assez similaire au R² multiple, ce qui est positif.
+
+F-statistique ou Test de significativité conjointe (F = 197,4) : Cette statistique teste l'hypothèse nulle selon laquelle tous les coefficients de régression sont égaux à zéro (c'est-à-dire qu'aucune variable n'a d'effet). Ici, la p-value associée à cette statistique est extrêmement faible (< 2.2e-16), ce qui signifie que le modèle est globalement significatif et que les variables sont collectivement utiles pour expliquer la variation du prix des propriétés.
+
+
+
+
+# Test de significativité individuelle :
+verifier si les coefficients sont significativement différent de 0 au seuil de 5%
+
+## Extraire les p-values des coefficients
+
+
+
+
+```{r}
+p_values <- summary(prix_reg)$coefficients[, 4]
+print(p_values)
+```
+
+
+
+## Vérifier les variables significatives au seuil de 5%
+
+
+
+
+
+```{r}
+significatif_5pct <- p_values < 0.05
+print(significatif_5pct)
+```
+Interpretation : Chaque variable dans notre modèle est significative pour expliquer le prix des propriétés, ce qui rend Notre modèle robuste et globalement significatif.
+
+
+___
+
+
+
+# Calcule de la variance 
+
+
+
+
+
+```{r}
+anova<-aov(prix_reg)
+summary(anova)
+aov(prix_reg)
+```
+
+
+
+## Calcule et affichage des residus
+
+
+
+
+```{r}
+prix$residus<-residuals(prix_reg)
+summary(prix$residus)
+par(mfrow=c(1,1))
+plot(prix_reg$residuals,main = "Residus du modele",col="blue")
+abline(h=0,col="red")
+hist(prix$residus,col = "green") 
+
+
+```
+
+
+Interpretation: (rajouter l'interpretation sur les residus)
+
+
+##  Une autre manière d'extraire et de visualiser les résidus
+
+
+
+
+```{r}
+qqnorm(residuals(prix_reg),col="blue")
+qqline(residuals(prix_reg),col="red")
+```
+
+
+
+Interpretation:.....
+
+___
+
+
+
+# H2 Verifier si les variables sont corrélé
+
+
+
+```{r}
+data_bis = prix[, c("Superficie_propriété", "Nombre_Chambres", "Nombre_Salles_bain","Nombre_Étages",
+                    "Possede_Jardin", "Possede_Piscine", "Garage_Taille", "Score_Qualité_quartier", 
+                    "Distance_Centre_ville"  )]
+corr.matrix <- cor(data_bis)
+corr.matrix
+corrplot(corr.matrix, method = 'square', diag = F, addCoef.col ='black', number.cex = 0.5)
+```
+
+
+
+
+
+Interpretation: Par exemple, on peut voir qu'il y a peu de corrélation entre le fait d'avoir une chambre et une salle de bain 
+
+
+
+# Calcule VIF : Variance Inflation Factor
+
+test la correletion des Variables Explicatitives
+
+
+
+
+
+```{r}
+vif(lm(Prix~Superficie_propriété+Nombre_Chambres+Nombre_Salles_bain+Nombre_Étages+Possede_Jardin+Possede_Piscine+Garage_Taille+Score_Qualité_quartier+Distance_Centre_ville, data=prix))
+```
+
+
+Interpretation des VIF des coefficients: tous les VIF des variables explicatives sont inferieurs à 5, ce qui sugerent qu'on a pas un probleme de multicolinéarité en entre les variables 
+
+
+___
+
+
+
+# Test d'endogénéité en vérifiant la corrélation entre les résidus et les variables explicatives
+
+
+
+
+```{r}
+residuals <- residuals(prix_reg)
+
+endo <- vector("numeric", length = ncol(prix))
+for (i in 1:ncol(prix)) {
+  cor_residuals <- cor(residuals, prix[[i]])  
+  endo[i] <- cor_residuals
+}
+
+print(endo)
+```
+
+
+
+
+Interpretation: ( on a pas les meme valeur à verifier) La plupart des variables explicatives sont proches de 0, cela signifie qu'elles ne sont pas corrélés avec les termes d'erreurs. (La valeur 4.649576e-01 est pour la variable dépendante et celle de 9.378167e-01 est pour les années de construction que nous n'avons pas pris en compte dans notre modèle). Il n'y a donc pas d'endogénéité dans notre modèle.
+
+
+
+
+# H3 verifier si les residus sont homocedastique
+verifier si la variance est constante
+
+## Test sur les residus
+
+### test de Breush-Pagan
+
+```{r}
+bptest(prix_reg)
+```
+
+
+Interpretation BP-test: comme la p-value est 0.1799 (plus grande que 0.05), on ne rejete pas l'hypothèse nulle. Cela signifie qu'il n'y a pas suffisamment de preuves pour conclure que les erreurs sont hétéroscédastiques. 
+En d'autres termes, les erreurs du modèle semblent avoir une variance constante (hypothèse d'homoscédasticité).
+
+
+
+
+
+### test de white
+
+
+
+
+```{r}
+white_test(prix_reg)
+```
+
+
+Interpretation test de white : le test statistique (0.6) est une mesure de l'écart entre les résidus observés et ce que l'on attend sous l'hypothèse nulle d'homoscédasticité. Ce chiffre est relativement faible, ce qui suggère que l'écart par rapport à l'hypothèse nulle n'est pas très important.
+
+La p-value de 0.741013 est bien supérieure au seuil de signification habituel de 0.05 (ou même 0.01). Cela signifie qu'il n'y a pas suffisamment de preuves statistiques pour conclure que les résidus sont hétéroscédastiques. En d'autres termes, selon ce test de White, il n'y a pas de preuve de la présence d'hétéroscédasticité dans notre modèle de régression. nous pouvez donc supposer que les résidus sont homoscédastiques (la variance des résidus est constante).
+
+
+___
+
+
+
+# H4 Verifier l'auto-correlation des variables
+
+## test d'auto-correlation
+
+
+
+```{r}
+dw_test <- durbinWatsonTest(prix_reg)
+print(dw_test)
+```
+
+
+
+Interpretation du test de durbin : la statistique DW est très proche de 2, ce qui suggère qu'il n'y a pas d'autocorrélation significative dans les erreurs du modèle.La corrélation des erreurs entre les observations successives. Dans notre cas, elle est très proche de zéro (-0.00077), ce qui suggère une absence d'autocorrélation des erreurs.
+
+p-value = 0.976 : La p-value associée au test. Une p-value élevée indique qu'il n'y a pas de preuve suffisante pour rejeter l'hypothèse nulle, qui est que l'autocorrélation est égale à zéro.
+
+
+___
+
+
+
+# Discution des resultats du modéle
+
+- Le prix dee base d'un bien immobilier lorsqu'aucune des autres variables n'est présente est de 79,650.92€
+- Pour chaque mètre carré supplémentaire de superficie, le prix du bien augmente en moyenne de 977,85 €.
+- Pour chaque chambre en plus, le prix augmente en moyenne de 51 762,19 €.
+- Une augmentation de la distance au centre-ville d'1km diminue le prix en moyenne de 2 011,24 €.
+
+
+___
+
+
+# Prédiction des prix à partir du modèle
+
+
+```{r}
+prediction<- predict(prix_reg, newdata = prix)
+print(prediction)
+```
+
+# Poursuite de l'analyse avec le modèle Logit
+##Nous pouvons déterminer si le prix d'une maison est considérer comme élevéé
+
+##On calcul la médiane pour déterminer si un prix est élevée ou non
+```{r}
+mediane_prix <- median(prix$Prix, na.rm = TRUE)
+print(mediane_prix)
+```
+Donc le prix est considéré élevé si > 574 724
+
+##Il faut ensuite créer la variable binaire "Prix_élevé" de 1 si > 574724, sinon 0
+```{r}
+df$Prix_élevé <- ifelse(df$Prix > 574724, 1, 0)
+str(df$Prix_élevé)
+```
+
+##Nous pouvons désormais estimer notre modèle logit
+```{r}
+model_logit <- glm(Prix_élevé ~ Superficie_propriété + Nombre_Chambres +
+                     Nombre_Salles_bain + Nombre_Étages + Possede_Jardin +
+                     Possede_Piscine + Garage_Taille + Score_Qualité_quartier+ Distance_Centre_ville, 
+                   data = prix, 
+                   family = binomial)
+summary(model_logit)
+
+```
+Néanmoins nous ne pouvons pas interpréter les coefficients, seulement leur signe
+
+
+##Test R² 
+```{r}
+PR2 = pR2(model_logit)
+print(PR2)
+```
+
+McFadden R² : 0.5026 → Nous pouvons considérer que le modèle améliore significativement les prédictions par rapport à un modèle sans aucune information
+
+
+##Il faut créer de nouvelles colonnes "proba_prédite", "classe_prédite ", qui respectivement donne la probabilité de si la maison a un prix elevé ou non, et lui assigne 1 si proba > 0,5, sinon 0
+
+
+##Prédire les probabilités que la maison soit chère
+```{r}
+prix$proba_prédite <- predict(model_logit, type = "response")
+```
+
+##Convertir les probabilités en classes binaires. Les proba deviennent donc 1 ou 0
+```{r}
+prix$classe_prédite <- ifelse(prix$proba_prédite > 0.5, 1, 0)
+```
+
+## Matrice de confusion permet de montrer combien de prediction sont justes ou pas
+```{r}
+Matrice_confusion = table(Actual = prix$Prix_élevé, Predicted = prix$classe_prédite)
+print(Matrice_confusion)
+```
+Ici, le modèle à bien estimé 213 prix faible quand ils étaient faibles, mais en a aussi prédit 48 faibles alors qu'ils étaient élevé
+
+##Calcul de la probabilité de trouver si une maison est réellement chère ou non
+```{r}
+VP <- 202  # Vrais Positifs
+VN <- 213  # Vrais Négatifs
+FP <- 37   # Faux Positifs
+FN <- 48   # Faux Négatifs
+
+total <- VP + VN + FP + FN
+
+accuracy <- (VP + VN) / total
+
+print(paste("Précision globale (Accuracy) :", round(accuracy * 100, 2), "%"))
+
+```
+
+## Illustration montrant la relation entre la superficie et la probabilité que le prix soit élevé
+```{r}
+Cor_Prix_Surface = ggplot(prix, aes(x = Superficie_propriété, y = proba_prédite, color = as.factor(Prix_élevé))) +
+  geom_point() +
+  labs(title = "Probabilité prédite de Prix élevé en fonction de la Superficie",
+       x = "Superficie de la propriété",
+       y = "Probabilité prédite de Prix élevé") +
+  theme_minimal()
+print (Cor_Prix_Surface)
+```
+Tendance générale :
+Plus la superficie de la propriété augmente, plus la probabilité prédite d'avoir un Prix élevé augmente
+
+
+#Prédictions pour de nouveaux cas
+
+## Créer un nouveau dataframe avec les caractéristiques la maison
+```{r}
+nouvelle_maison <- data.frame(
+  Superficie = 150,
+  Nb_Chambres = 2,
+  Nb_SDB = 1,
+  Nb_Étages = 1,
+  Jardin = 1,
+  Piscine = 1,
+  Garage_Taille = 48,
+  Score_Qualité_quartier = 8,
+  Distance_Centre_ville = 6
+)
+```
+
+##Prédit la probabilité ave le modèle logit
+```{r}
+proba_logit <- predict(model_logit, newdata = nouvelle_maison, type = "response")
+print(proba_logit)
+```
+
+##Affichage en binaire
+```{r}
+# Convertir en classe binaire
+classe_predite <- ifelse(proba_logit > 0.5, "Prix élevé", "Prix faible")
+print(classe_predite)
+```
+  Une maison avec ces caractéristique aurait donc un prix faible, c'est à dire < 574 724€, avec un taux de réussite à 83%
+
