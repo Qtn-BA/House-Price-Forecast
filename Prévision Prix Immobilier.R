@@ -164,17 +164,15 @@ print(endo)
 
 ### test de Breush-Pagan
 
- 
 bptest(prix_reg)
 
 
-### test de white
+### test de White
 
 white_test(prix_reg)
 
 
 ## test d'auto-correlation
-
 
 dw_test <- durbinWatsonTest(prix_reg)
 print(dw_test)
@@ -183,8 +181,6 @@ print(dw_test)
 
 # Prédiction des prix à partir du modèle
 
-
- 
 prediction<- predict(prix_reg, newdata = prix)
 print(prediction)
 
@@ -196,8 +192,6 @@ print(prediction)
  
 mediane_prix <- median(prix$Prix, na.rm = TRUE)
 print(mediane_prix)
-
-Donc le prix est considéré élevé si > 574 724
 
 ##Il faut ensuite créer la variable binaire "Prix_élevé" de 1 si > 574724, sinon 0
  
@@ -214,16 +208,12 @@ model_logit <- glm(Prix_élevé ~ Superficie_propriété + Nombre_Chambres +
                    family = binomial)
 summary(model_logit)
 
-Néanmoins nous ne pouvons pas interpréter les coefficients, seulement leur signe
-
 
 ##Test R² 
  
 PR2 = pR2(model_logit)
 print(PR2)
 
-
-McFadden R² : 0.5026 → Nous pouvons considérer que le modèle améliore significativement les prédictions par rapport à un modèle sans aucune information
 
 
 ##Il faut créer de nouvelles colonnes "proba_prédite", "classe_prédite ", qui respectivement donne la probabilité de si la maison a un prix elevé ou non, et lui assigne 1 si proba > 0,5, sinon 0
@@ -293,12 +283,8 @@ nouvelle_maison <- data.frame(
 proba_logit <- predict(model_logit, newdata = nouvelle_maison, type = "response")
 print(proba_logit)
 
-
-##Affichage en binaire
  
 # Convertir en classe binaire
 classe_predite <- ifelse(proba_logit > 0.5, "Prix élevé", "Prix faible")
 print(classe_predite)
 
-Une maison avec ces caractéristique aurait donc un prix faible, c'est à dire < 574 724€, avec un taux de réussite à 83%. J'aimerais que tu m'enleve tout les  
- ,
