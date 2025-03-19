@@ -1,9 +1,3 @@
----
-title: "Prévision du prix des logements"
-Authors: "BACHER Quentin -	BAHAKOULA Fanelvie - MZIU Erleta -	PIERRON Marie"
-output: html_document
-date: "2024-12-12"
----
 
 ```{r setup1, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
