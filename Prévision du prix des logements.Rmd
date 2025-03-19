@@ -48,7 +48,7 @@ library(pscl)
 
 # Objectif du modele
 
-L'objectif est de construire un modèle de régression qui peut prédire le prix d'une propriété en fonction des caractéristiques fournies.
+L'objectif est de construire un modèle qui permet de prédire le prix d'une propriété en fonction des caractéristiques fournies.
 
 
 ## Description de la tâche
@@ -84,8 +84,8 @@ Distance_Centre_ville: La distance entre la propriété et le centre-ville en ki
 
 
 ```{r}
-setwd("/Users/fanelviebahakoula")
-prix<-read_excel("Downloads/Projet Econométrie ETIC/bd prix de logements.xlsx")
+setwd("/Users/qtn-BA")
+prix<-read_excel("Downloads/Projet Econométrie/bd prix de logements.xlsx")
 View(prix)
 
 ```
